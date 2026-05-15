@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>A* Revision Hub</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff;color:#1a1a18;font-size:14px;}
+button,input,select,textarea{font-family:inherit;}
+.chip{font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;border:0.5px solid #e8e8e4;background:transparent;color:#6b6b68;}
+.chip.active{border-color:#85B7EB;background:#E6F1FB;color:#0C447C;}
+.tab-btn{font-size:12px;padding:6px 13px;border-radius:6px 6px 0 0;border:0.5px solid transparent;cursor:pointer;background:transparent;color:#6b6b68;white-space:nowrap;}
+.tab-btn.active{background:#fff;border-color:#d4d4d0;border-bottom-color:#fff;color:#1a1a18;font-weight:500;margin-bottom:-1px;}
+.is{width:100%;font-size:12px;padding:7px 10px;border-radius:7px;border:0.5px solid #d4d4d0;background:#fff;color:#1a1a18;}
+.is:focus{outline:none;border-color:#85B7EB;}
+textarea.is{resize:vertical;min-height:70px;}
+</style>
+</head>
+<body>
+<div id="app"><div style="padding:2rem;color:#666">Connecting to Supabase...</div></div>
+<script>
+const SUPA_URL="https://uzphyoapaopddyiliryd.supabase.co";
+const SUPA_KEY="sb_publishable_JcLb2MtM-kBWHZrMAty_Pg_pP-F2qbZ";
+const H={"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json"};
+
+async function dbLoad(){
+  const r=await fetch(SUPA_URL+"/rest/v1/revision_data?id=eq.main&select=data",{headers:H});
+  const rows=await r.json();
+  return(rows&&rows[0]&&rows[0].data)?rows[0].data:{};
+}
+async function dbSave(data){
+  await fetch(SUPA_URL+"/rest/v1/revision_data",{method:"POST",headers:{...H,"Prefer":"resolution=merge-duplicates"},body:JSON.stringify({id:"main",data,updated_at:new Date().toISOString()})});
+}
+
+const PB={
+  "Maths":{
+    "Paper 1 (Pure)":{2024:{as:81,a:66,b:53,max:100},2023:{as:82,a:67,b:54,max:100},2022:{as:70,a:53,b:42,max:100},2019:{as:null,a:59,b:47,max:100}},
+    "Paper 2 (Pure)":{2024:{as:81,a:65,b:53,max:100},2023:{as:80,a:63,b:51,max:100},2022:{as:73,a:55,b:43,max:100},2019:{as:null,a:54,b:43,max:100}},
+    "Paper 3 (Stats & Mech)":{2024:{as:89,a:74,b:60,max:100},2023:{as:82,a:66,b:53,max:100},2022:{as:74,a:56,b:44,max:100},2019:{as:null,a:52,b:44,max:100}},
+  },
+  "Further Maths":{
+    "Core Pure 1":{2024:{as:67,a:60,b:51,max:75},2023:{as:51,a:43,b:35,max:75},2022:{as:65,a:54,b:43,max:75},2019:{as:60,a:50,b:41,max:75}},
+    "Core Pure 2":{2024:{as:63,a:56,b:48,max:75},2023:{as:56,a:46,b:38,max:75},2022:{as:59,a:49,b:39,max:75},2019:{as:60,a:51,b:41,max:75}},
+    "Further Mech 1":{2024:{as:68,a:61,b:51,max:75},2023:{as:60,a:52,b:43,max:75},2022:{as:55,a:46,b:38,max:75},2019:{as:63,a:53,b:44,max:75}},
+    "Further Stats 1":{2024:{as:56,a:48,b:40,max:75},2023:{as:60,a:53,b:43,max:75},2022:{as:59,a:49,b:39,max:75},2019:{as:67,a:56,b:47,max:75}},
+  },
+  "Computer Science":{
+    "H446/01 Computer Systems":{2024:{as:107,a:93,b:78,max:140},2023:{as:100,a:87,b:72,max:140},2022:{as:88,a:76,b:62,max:140},2019:{as:108,a:94,b:79,max:140}},
+    "H446/02 Algorithms & Programming":{2024:{as:112,a:97,b:81,max:140},2023:{as:104,a:90,b:74,max:140},2022:{as:93,a:80,b:65,max:140},2019:{as:112,a:97,b:82,max:140}},
+  },
+};
+const B25={
+  "Maths":{"Paper 1 (Pure)":{as:88,a:74,b:61,max:100},"Paper 2 (Pure)":{as:83,a:67,b:55,max:100},"Paper 3 (Stats & Mech)":{as:87,a:73,b:61,max:100}},
+  "Further Maths":{"Core Pure 1":{as:62,a:53,b:45,max:75},"Core Pure 2":{as:70,a:61,b:52,max:75},"Further Mech 1":{as:58,a:51,b:44,max:75},"Further Stats 1":{as:54,a:50,b:43,max:75}},
+  "Computer Science":{"H446/01 Computer Systems":{as:112,a:99,b:84,max:140},"H446/02 Algorithms & Programming":{as:116,a:101,b:85,max:140}},
+};
+const ALB={
+  "Maths":{2025:{as:258,a:214,b:178,max:300},2024:{as:251,a:205,b:167,max:300},2023:{as:244,a:196,b:158,max:300},2022:{as:217,a:164,b:130,max:300},2019:{as:217,a:165,b:134,max:300}},
+  "Further Maths":{2025:{as:262,a:233,b:199,max:300},2024:{as:256,a:226,b:192,max:300},2023:{as:224,a:189,b:158,max:300},2022:{as:239,a:201,b:167,max:300},2019:{as:239,a:201,b:167,max:300}},
+  "Computer Science":{2025:{as:291,a:256,b:218,max:350},2024:{as:291,a:256,b:218,max:350},2023:{as:286,a:251,b:209,max:350},2022:{as:264,a:229,b:189,max:350},2019:{as:285,a:250,b:212,max:350}},
+};
+const BASE_PAPERS=[
+  ...[2024,2023,2022,2019].flatMap(y=>["Paper 1 (Pure)","Paper 2 (Pure)","Paper 3 (Stats & Mech)"].map((p,i)=>({id:"m_"+y+"_"+i,subject:"Maths",paper:p,year:String(y),pmtUrl:"https://www.physicsandmathstutor.com/maths-revision/a-level-edexcel/papers/"}))),
+  ...[2024,2023,2022,2019].flatMap(y=>["Core Pure 1","Core Pure 2","Further Mech 1","Further Stats 1"].map((p,i)=>({id:"fm_"+y+"_"+i,subject:"Further Maths",paper:p,year:String(y),pmtUrl:"https://www.physicsandmathstutor.com/maths-revision/a-level-edexcel/papers-further/"}))),
+  ...[2024,2023,2022,2019].flatMap(y=>["H446/01 Computer Systems","H446/02 Algorithms & Programming"].map((p,i)=>({id:"cs_"+y+"_"+i,subject:"Computer Science",paper:p,year:String(y),pmtUrl:"https://www.physicsandmathstutor.com/a-level-computer-science/ocr/past-papers/"}))),
+];
+
+const PB_PHYS = {
+  "H556/01 Modelling Physics": {
+    2024: {as:72, a:63, b:52, max:100},
+    2023: {as:74, a:65, b:54, max:100},
+    2022: {as:68, a:58, b:46, max:100},
+    // Nov sittings
+    "Nov 2021": {as:83, a:69, b:58, max:100},
+    "Nov 2020": {as:84, a:75, b:62, max:100},
+    2019: {as:88, a:80, b:70, max:100},
+    2018: {as:72, a:62, b:50, max:100},
+    2017: {as:73, a:63, b:51, max:100},
+  },
+  "H556/02 Exploring Physics": {
+    2024: {as:84, a:70, b:58, max:100},
+    2023: {as:81, a:69, b:57, max:100},
+    2022: {as:75, a:63, b:51, max:100},
+    "Nov 2021": {as:78, a:66, b:54, max:100},
+    "Nov 2020": {as:82, a:72, b:59, max:100},
+    2019: {as:87, a:77, b:65, max:100},
+    2018: {as:76, a:65, b:53, max:100},
+    2017: {as:72, a:61, b:49, max:100},
+  },
+  "H556/03 Unified Physics": {
+    2024: {as:51, a:42, b:36, max:70},
+    2023: {as:56, a:48, b:40, max:70},
+    2022: {as:49, a:41, b:33, max:70},
+    "Nov 2021": {as:53, a:47, b:39, max:70},
+    "Nov 2020": {as:55, a:45, b:38, max:70},
+    2019: {as:55, a:47, b:39, max:70},
+    2018: {as:51, a:43, b:35, max:70},
+    2017: {as:50, a:42, b:34, max:70},
+  },
+};
+const B25_PHYS = {
+  "H556/01 Modelling Physics": {as:null, a:66, b:56, max:100},
+  "H556/02 Exploring Physics": {as:84, a:74, b:62, max:100},
+  "H556/03 Unified Physics":   {as:47, a:39, b:33, max:70},
+};
+const ALB_PHYS = {
+  "Physics A (OCR)": {
+    2025: {as:206, a:179, b:151, max:270},
+    2024: {as:207, a:175, b:146, max:270},
+    2023: {as:211, a:182, b:151, max:270},
+    2022: {as:211, a:181, b:147, max:270},
+    "Nov 2021": {as:214, a:182, b:151, max:270},
+    "Nov 2020": {as:221, a:192, b:159, max:270},
+    2019: {as:230, a:204, b:174, max:270},
+  },
+};
+const PHYS_PAPERS = [
+  // June series
+  ...[2024,2023,2022,2019,2018,2017].flatMap(y =>
+    ["H556/01 Modelling Physics","H556/02 Exploring Physics","H556/03 Unified Physics"].map((p,i) => ({
+      id: "ph_"+y+"_"+i,
+      subject: "Physics A (OCR)",
+      paper: p,
+      year: String(y),
+      pmtUrl: "https://www.physicsandmathstutor.com/past-papers/a-level-physics/ocr-a-paper-"+(i+1)+"/",
+    }))
+  ),
+  // November series
+  ...["Nov 2021","Nov 2020"].flatMap(y =>
+    ["H556/01 Modelling Physics","H556/02 Exploring Physics","H556/03 Unified Physics"].map((p,i) => ({
+      id: "ph_"+y.replace(" ","")+"_"+i,
+      subject: "Physics A (OCR)",
+      paper: p,
+      year: y,
+      pmtUrl: "https://www.physicsandmathstutor.com/past-papers/a-level-physics/ocr-a-paper-"+(i+1)+"/",
+    }))
+  ),
+];
+  
+const ALL_PAPER_OPTS=["Paper 1 (Pure)","Paper 2 (Pure)","Paper 3 (Stats & Mech)","Core Pure 1","Core Pure 2","Further Stats 1","Further Mech 1","H446/01 Computer Systems","H446/02 Algorithms & Programming","Other"];
+
+// function getB(subj,paper,year){return((PB[subj]||{})[paper]||{})[parseInt(year)]||null;}
+function getB(subj,paper,year){
+  if(subj==="Physics A (OCR)"){
+    const pb=PB_PHYS[paper]||{};
+    return pb[year]||pb[parseInt(year)]||null;
+  }
+  return((PB[subj]||{})[paper]||{})[parseInt(year)]||null;
+}
+function gradeLabel(score,b){
+  if(!b)return null;const s=parseInt(score);if(isNaN(s))return null;
+  if(b.as&&s>=b.as)return{label:"A*",c:"#0F6E56"};
+  if(s>=b.a)return{label:"A",c:"#185FA5"};
+  if(s>=b.b)return{label:"B",c:"#854F0B"};
+  return{label:"C/below",c:"#A32D2D"};
+}
+function pct(s,m){return Math.round(parseInt(s)/m*100);}
+function el(tag,attrs,children){
+  const e=document.createElement(tag);
+  for(const[k,v] of Object.entries(attrs||{})){
+    if(k==="style"&&typeof v==="object")Object.assign(e.style,v);
+    else if(k.startsWith("on"))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else e.setAttribute(k,v);
+  }
+  for(const c of[].concat(children||[])){
+    if(c==null)continue;
+    e.appendChild(typeof c==="string"?document.createTextNode(c):c);
+  }
+  return e;
+}
+function div(a,c){return el("div",a,c);}
+function span(a,c){return el("span",a,c);}
+function btn(a,c){return el("button",a,c);}
+function inp(a){return el("input",a);}
+
+let state={
+  tab:0, ppFilter:"All", wtFilter:"All",
+  paperData:{}, doneTopics:{}, customPapers:[],
+  openYears:{}, openPapers:{}, paperSubtabs:{},
+  showAdd:false,
+  addForm:{subject:"Maths",paper:"",year:"",maxMarks:"",label:"",customName:"",useCustom:false,bAs:"",bA:"",bB:""},
+};
+let saveTimer=null;
+
+function schedSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>dbSave({paperData:state.paperData,doneTopics:state.doneTopics,customPapers:state.customPapers}),1200);
+}
+function setState(patch){Object.assign(state,patch);render();}
+function allPapers(){return[...BASE_PAPERS,...PHYS_PAPERS,...state.customPapers];}
+
+const FIELD_SELECTOR='input,textarea';
+function isAppFocused(){
+  const a=document.activeElement;
+  return a&&document.getElementById("app").contains(a)&&a.matches(FIELD_SELECTOR);
+}
+function attachLive(element,onInput){
+  element.addEventListener("input",e=>{onInput(e.target.value);schedSave();});
+  element.addEventListener("blur",()=>{setTimeout(()=>{if(!isAppFocused())render();},0);});
+  return element;
+}
+function liveInp(attrs,onInput){return attachLive(inp(attrs),onInput);}
+function liveTa(attrs,initVal,onInput){return attachLive(el("textarea",attrs,[initVal]),onInput);}
+
+function render(){
+  const app=document.getElementById("app");
+  app.innerHTML="";
+  app.appendChild(buildApp());
+}
+
+function buildApp(){
+  const papers=allPapers();
+  const filtered=state.ppFilter==="All"?papers:papers.filter(p=>p.subject===state.ppFilter);
+  const header=div({style:{padding:"1rem 1rem 0"}},[
+    div({style:{fontSize:"17px",fontWeight:500}},"A* Revision Hub"),
+    div({style:{fontSize:"11px",color:"#6b6b68"}},"Edexcel Maths & Further Maths · OCR CS H446 · Summer 2026 · Supabase sync"),
+  ]);
+  const tabs=div({style:{display:"flex",gap:"2px",padding:"0.75rem 1rem 0",borderBottom:"0.5px solid #e8e8e4",overflowX:"auto"}},
+    ["Past Papers","Weak Topics"].map((t,i)=>btn({class:"tab-btn"+(state.tab===i?" active":""),onClick:()=>setState({tab:i})},t))
+  );
+  const content=div({style:{padding:"1rem"}});
+  if(state.tab===0)content.appendChild(buildPastPapers(papers,filtered));
+  else content.appendChild(buildWeakTopics(allPapers()));
+  return div({},[header,tabs,content]);
+}
+
+function buildPastPapers(papers,filtered){
+  const wrap=div({});
+  const chipRow=div({style:{display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"12px",alignItems:"center"}});
+  ["All","Maths","Further Maths","Computer Science","Physics A (OCR)"].forEach(f=>{
+    chipRow.appendChild(btn({class:"chip"+(state.ppFilter===f?" active":""),onClick:()=>setState({ppFilter:f,showAdd:false})},f));
+  });
+  chipRow.appendChild(btn({style:{marginLeft:"auto",fontSize:"11px",padding:"4px 12px",borderRadius:"6px",border:"0.5px solid #185FA5",background:"#E6F1FB",color:"#0C447C",cursor:"pointer"},
+    onClick:()=>setState({showAdd:!state.showAdd,addForm:{subject:state.ppFilter==="All"?"Maths":state.ppFilter,paper:"",year:"",maxMarks:"",label:"",customName:"",useCustom:false,bAs:"",bA:"",bB:""}})
+  },"+ Add paper"));
+  wrap.appendChild(chipRow);
+  if(state.showAdd)wrap.appendChild(buildAddModal());
+  if(state.ppFilter==="All"){
+    wrap.appendChild(buildInsights(papers));
+  } else {
+    const subPapers=filtered.filter(p=>p.subject===state.ppFilter);
+    const years=[...new Set(subPapers.map(p=>p.year))].sort((a,b)=>b-a);
+    wrap.appendChild(div({style:{fontSize:"13px",fontWeight:500,marginBottom:"8px",paddingBottom:"5px",borderBottom:"0.5px solid #e8e8e4"}},state.ppFilter));
+    years.forEach(y=>wrap.appendChild(buildYearBlock(y,subPapers.filter(p=>p.year===y),state.ppFilter)));
+  }
+  return wrap;
+}
+
+function buildYearBlock(year,papers,subject){
+  //const alb=((ALB[subject])||{})[parseInt(year)];
+  const alb=subject==="Physics A (OCR)"
+  ?(ALB_PHYS["Physics A (OCR)"]||{})[year]||(ALB_PHYS["Physics A (OCR)"]||{})[parseInt(year)]
+  :((ALB[subject])||{})[parseInt(year)];
+  const allDone=papers.length>0&&papers.every(p=>state.paperData[p.id]?.grade);
+  const key=subject+"_"+year;
+  const open=!!state.openYears[key];
+  const header=div({style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderRadius:open?"10px 10px 0 0":"10px",border:"0.5px solid "+(allDone?"#5DCAA5":"#e8e8e4"),background:open?"#f7f7f5":"#fff",cursor:"pointer",userSelect:"none"},
+    onClick:()=>{const oy={...state.openYears};oy[key]=!open;setState({openYears:oy});}
+  },[
+    div({style:{display:"flex",alignItems:"center",gap:"8px"}},[
+      allDone?span({style:{color:"#0F6E56",fontSize:"14px"}},"✓"):null,
+      span({style:{fontSize:"13px",fontWeight:500}},year),
+    ]),
+    div({style:{display:"flex",alignItems:"center",gap:"10px"}},[
+      alb?span({style:{fontSize:"10px",color:"#6b6b68"}},"A*:"+alb.as+" A:"+alb.a+" B:"+alb.b+" /"+alb.max):null,
+      span({style:{fontSize:"10px",color:"#6b6b68"}},open?"▲":"▼"),
+    ]),
+  ]);
+  const wrap=div({style:{marginBottom:"6px"}},[header]);
+  if(open){
+    const body=div({style:{border:"0.5px solid #e8e8e4",borderTop:"none",borderRadius:"0 0 10px 10px",overflow:"hidden"}});
+    papers.forEach(p=>body.appendChild(buildPaperRow(p)));
+    wrap.appendChild(body);
+  }
+  return wrap;
+}
+
+function buildPaperRow(p){
+  const open=!!state.openPapers[p.id];
+  const d=state.paperData[p.id]||{};
+  const b=p.customBoundary||getB(p.subject,p.paper,p.year);
+  //const b25=((B25[p.subject]||{})[p.paper])||null;
+  const b25=p.subject==="Physics A (OCR)"?((B25_PHYS[p.paper])||null):((B25[p.subject]||{})[p.paper])||null;
+  const sc=d.grade?parseInt(d.grade):null;
+  const gl=gradeLabel(sc,b);
+  const sp=(sc!==null&&b)?pct(sc,b.max):null;
+  const col=gl?gl.c:"#B4B2A9";
+  const displayName=p.displayPaper||p.paper;
+
+  const rowHead=div({style:{display:"flex",alignItems:"center",gap:"8px",padding:"9px 14px",cursor:"pointer",background:open?"#f7f7f5":"transparent",userSelect:"none"},
+    onClick:()=>{const op={...state.openPapers};op[p.id]=!open;setState({openPapers:op});}
+  },[
+    span({style:{fontSize:"12px",flex:1}},displayName),
+    sc!==null
+      ?span({style:{fontSize:"11px",fontWeight:500,color:col}},d.grade+"/"+(b?b.max:"?")+" ("+sp+"%) "+(gl?"· "+gl.label:""))
+      :span({style:{fontSize:"10px",color:"#9b9b98",fontStyle:"italic"}},"not done"),
+    p.pmtUrl?el("a",{href:p.pmtUrl,target:"_blank",style:{fontSize:"10px",color:"#185FA5",textDecoration:"none"},onClick:e=>e.stopPropagation()},"PMT"):null,
+    span({style:{fontSize:"10px",color:"#6b6b68"}},open?"▲":"▼"),
+    p.id.startsWith("custom_")?btn({style:{fontSize:"10px",padding:"2px 7px",borderRadius:"5px",border:"0.5px solid #F09595",background:"transparent",color:"#A32D2D",cursor:"pointer"},
+      onClick:e=>{e.stopPropagation();setState({customPapers:state.customPapers.filter(x=>x.id!==p.id)});schedSave();}
+    },"✕"):null,
+  ]);
+
+  const wrap=div({style:{borderTop:"0.5px solid #e8e8e4"}},[rowHead]);
+  if(!open)return wrap;
+
+  const body=div({style:{padding:"14px",background:"#f7f7f5",borderTop:"0.5px solid #e8e8e4"}});
+
+  const scoreInp=liveInp(
+    {type:"number",class:"is",placeholder:"e.g. 78",value:d.grade||""},
+    val=>{if(!state.paperData[p.id])state.paperData[p.id]={};state.paperData[p.id].grade=val;}
+  );
+  const dateInp=inp({type:"date",class:"is",value:d.dateDone||""});
+  dateInp.addEventListener("change",e=>{
+    if(!state.paperData[p.id])state.paperData[p.id]={};
+    state.paperData[p.id].dateDone=e.target.value;
+    schedSave();render();
+  });
+
+  const grid=div({style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
+  grid.appendChild(div({},[el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Score /"+(b?b.max:100)),scoreInp]));
+  grid.appendChild(div({},[el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Date done"),dateInp]));
+  body.appendChild(grid);
+
+  if(sc!==null&&b){
+    const bDiv=div({style:{marginBottom:"12px"}});
+    const bar=div({style:{height:"7px",borderRadius:"4px",background:"#e8e8e4",overflow:"hidden",marginBottom:"8px"}});
+    bar.appendChild(div({style:{height:"100%",width:Math.min(sp,100)+"%",background:col,borderRadius:"4px"}}));
+    bDiv.appendChild(bar);
+    bDiv.appendChild(div({style:{fontSize:"11px",color:"#6b6b68",marginBottom:"5px"}},p.year+" boundaries"+(b.as===null?" (no A* published)":"")));
+    const bRow=div({style:{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"10px"}});
+    [{l:"A*",v:b.as,c:"#0F6E56"},{l:"A",v:b.a,c:"#185FA5"},{l:"B",v:b.b,c:"#854F0B"}].forEach(({l,v,c})=>{
+      if(v===null)return;const met=sc>=v;
+      bRow.appendChild(span({style:{fontSize:"10px",padding:"2px 8px",borderRadius:"5px",color:met?c:"#6b6b68",background:met?c+"22":"#fff",border:"0.5px solid "+(met?c:"#e8e8e4")}},l+" "+v+"/"+b.max+" ("+pct(v,b.max)+"%) "+(met?"✓":"")));
+    });
+    bDiv.appendChild(bRow);
+    if(b25){
+      bDiv.appendChild(div({style:{fontSize:"11px",color:"#6b6b68",marginBottom:"5px"}},"vs 2025 boundaries"));
+      const b25Row=div({style:{display:"flex",gap:"5px",flexWrap:"wrap"}});
+      [{l:"A*",v:b25.as,c:"#0F6E56"},{l:"A",v:b25.a,c:"#185FA5"},{l:"B",v:b25.b,c:"#854F0B"}].forEach(({l,v,c})=>{
+        const met=sc>=v;
+        b25Row.appendChild(span({style:{fontSize:"10px",padding:"2px 8px",borderRadius:"5px",color:met?c:"#6b6b68",background:met?c+"22":"#fff",border:"0.5px solid "+(met?c:"#e8e8e4")}},l+" "+v+"/"+b25.max+" ("+pct(v,b25.max)+"%) "+(met?"✓":"")));
+      });
+      bDiv.appendChild(b25Row);
+    }
+    body.appendChild(bDiv);
+  }
+
+  const subtab=state.paperSubtabs[p.id]||"wrong";
+  const stRow=div({style:{display:"flex",borderBottom:"0.5px solid #e8e8e4",marginBottom:"10px"}});
+  ["wrong","notes"].forEach(t=>{
+    const active=subtab===t;
+    stRow.appendChild(btn({style:{fontSize:"11px",padding:"5px 14px",background:"transparent",border:"none",borderBottom:active?"2px solid #185FA5":"2px solid transparent",color:active?"#0C447C":"#6b6b68",cursor:"pointer"},
+      onClick:()=>{state.paperSubtabs={...state.paperSubtabs,[p.id]:t};render();}
+    },t==="wrong"?"Topics Wrong":"Notes"));
+  });
+  body.appendChild(stRow);
+
+  const taKey=subtab==="wrong"?"wrongTopics":"notes";
+  body.appendChild(liveTa(
+    {class:"is",placeholder:subtab==="wrong"?"e.g. circle theorems, integration by parts...":"Notes about this paper..."},
+    d[taKey]||"",
+    val=>{if(!state.paperData[p.id])state.paperData[p.id]={};state.paperData[p.id][taKey]=val;}
+  ));
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function buildInsights(papers){
+  const done=papers.filter(p=>state.paperData[p.id]?.grade);
+  if(!done.length)return div({style:{padding:"32px",textAlign:"center",color:"#6b6b68",fontSize:"13px",border:"0.5px solid #e8e8e4",borderRadius:"12px"}},"No results yet — select a subject, open a year, and enter your score.");
+  const gc=l=>l==="A*"?"#0F6E56":l==="A"?"#185FA5":l==="B"?"#854F0B":"#A32D2D";
+  const wrap=div({});
+  const summary=div({style:{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"16px"}});
+  ["A*","A","B","C/below"].forEach(g=>{
+    const n=done.filter(p=>gradeLabel(state.paperData[p.id].grade,p.customBoundary||getB(p.subject,p.paper,p.year))?.label===g).length;
+    if(n>0)summary.appendChild(div({style:{padding:"6px 14px",borderRadius:"10px",background:gc(g)+"18",border:"0.5px solid "+gc(g),color:gc(g),fontSize:"12px",fontWeight:500}},g+": "+n));
+  });
+  summary.appendChild(div({style:{padding:"6px 14px",borderRadius:"10px",background:"#f7f7f5",border:"0.5px solid #e8e8e4",color:"#6b6b68",fontSize:"12px"}},done.length+"/"+papers.length+" done"));
+  wrap.appendChild(summary);
+  const bySubj={};
+  done.forEach(p=>{if(!bySubj[p.subject])bySubj[p.subject]=[];bySubj[p.subject].push(p);});
+  Object.entries(bySubj).forEach(([subj,ps])=>{
+    const s=div({style:{marginBottom:"16px"}});
+    s.appendChild(div({style:{fontSize:"12px",fontWeight:600,marginBottom:"8px",paddingBottom:"4px",borderBottom:"0.5px solid #e8e8e4"}},subj));
+    ps.forEach(p=>{
+      const d=state.paperData[p.id];const sc=parseInt(d.grade);
+      const b=p.customBoundary||getB(p.subject,p.paper,p.year);
+      const b2=p.subject==="Physics A (OCR)"?((B25_PHYS[p.paper])||null):((B25[p.subject]||{})[p.paper])||null;
+      //const b2=((B25[p.subject]||{})[p.paper])||null;
+      const gl=gradeLabel(sc,b);const g2=gradeLabel(sc,b2);
+      const sp2=b?pct(sc,b.max):null;const col=gl?gl.c:"#B4B2A9";
+      const gapAs=b&&b.as&&sc<b.as?b.as-sc:null;
+      const gap25=b2&&sc<b2.as?b2.as-sc:null;
+      const card=div({style:{background:"#fff",border:"0.5px solid "+(gl?gl.c+"66":"#e8e8e4"),borderRadius:"10px",padding:"10px 14px",marginBottom:"6px"}});
+      const top=div({style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"8px",marginBottom:"6px"}});
+      const left=div({});
+      left.appendChild(span({style:{fontSize:"12px",fontWeight:500}},p.displayPaper||p.paper));
+      left.appendChild(span({style:{fontSize:"11px",color:"#6b6b68",marginLeft:"8px"}},p.year));
+      if(d.dateDone)left.appendChild(span({style:{fontSize:"10px",color:"#9b9b98",marginLeft:"8px"}},d.dateDone));
+      const right=div({style:{display:"flex",gap:"6px",alignItems:"center",flexShrink:0}});
+      right.appendChild(span({style:{fontSize:"13px",fontWeight:600,color:col}},d.grade+"/"+(b?b.max:"?")+" ("+sp2+"%)"));
+      if(gl)right.appendChild(span({style:{fontSize:"11px",padding:"2px 8px",borderRadius:"5px",background:col+"22",border:"0.5px solid "+col,color:col,fontWeight:500}},gl.label));
+      top.appendChild(left);top.appendChild(right);
+      card.appendChild(top);
+      const bar=div({style:{height:"6px",borderRadius:"3px",background:"#e8e8e4",overflow:"hidden",marginBottom:"6px"}});
+      bar.appendChild(div({style:{height:"100%",width:Math.min(sp2,100)+"%",background:col,borderRadius:"3px"}}));
+      card.appendChild(bar);
+      const tags=div({style:{display:"flex",gap:"8px",flexWrap:"wrap",fontSize:"10px"}});
+      if(gapAs)tags.appendChild(span({style:{color:"#A32D2D"}},"+"+gapAs+" needed for "+p.year+" A*"));
+      if(g2)tags.appendChild(span({style:{color:g2.c,padding:"1px 6px",borderRadius:"4px",background:g2.c+"18",border:"0.5px solid "+g2.c+"55"}},"2025: "+g2.label));
+      if(gap25)tags.appendChild(span({style:{color:"#854F0B"}},"+"+gap25+" for 2025 A*"));
+      if(!gap25&&b2&&sc>=b2.as)tags.appendChild(span({style:{color:"#0F6E56"}},"Meets 2025 A*"));
+      if(d.wrongTopics)tags.appendChild(span({style:{color:"#6b6b68",padding:"1px 6px",borderRadius:"4px",background:"#f7f7f5"}},"Errors logged"));
+      card.appendChild(tags);
+      s.appendChild(card);
+    });
+    wrap.appendChild(s);
+  });
+  return wrap;
+}
+
+function buildWeakTopics(papers){
+  const rows=[];
+  papers.forEach(p=>{
+    const d=state.paperData[p.id];
+    if(!d?.wrongTopics?.trim())return;
+    d.wrongTopics.split(/,|;|\n/).map(t=>t.trim()).filter(Boolean).forEach(name=>{
+      rows.push({id:p.id+"_"+name,name:name.charAt(0).toUpperCase()+name.slice(1),paper:p.displayPaper||p.paper,year:p.year,subject:p.subject});
+    });
+  });
+  if(!rows.length)return div({style:{padding:"32px",textAlign:"center",color:"#6b6b68",fontSize:"13px",border:"0.5px solid #e8e8e4",borderRadius:"12px"}},"No weak topics yet. In Past Papers, open a paper and type topics you got wrong.");
+
+  const wtFilter=state.wtFilter;
+  const subjects=["All",...new Set(rows.map(r=>r.subject))];
+  const filtered=wtFilter==="All"?rows:rows.filter(r=>r.subject===wtFilter);
+  const pending=filtered.filter(r=>!state.doneTopics[r.id]);
+  const done=filtered.filter(r=>!!state.doneTopics[r.id]);
+
+  const wrap=div({});
+
+  // Filter chips
+  const chipRow=div({style:{display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"12px",alignItems:"center"}});
+  subjects.forEach(s=>{
+    const count=s==="All"?rows.length:rows.filter(r=>r.subject===s).length;
+    chipRow.appendChild(btn({
+      class:"chip"+(wtFilter===s?" active":""),
+      onClick:()=>setState({wtFilter:s})
+    },s+(s!=="All"?" ("+count+")":"")));
+  });
+  wrap.appendChild(chipRow);
+
+  // Summary line
+  wrap.appendChild(div({style:{fontSize:"11px",color:"#6b6b68",marginBottom:"10px"}},
+    pending.length+" pending · "+done.length+" done"+(wtFilter!=="All"?" in "+wtFilter:"")));
+
+  const renderCard=t=>{
+    const isDone=!!state.doneTopics[t.id];
+    const card=div({style:{background:"#fff",border:"0.5px solid "+(isDone?"#e8e8e4":"#AFA9EC"),borderRadius:"10px",padding:"10px 14px",marginBottom:"6px",opacity:isDone?"0.5":"1"}});
+    const row=div({style:{display:"flex",alignItems:"center",gap:"8px"}});
+    const cb=inp({type:"checkbox"});
+    cb.checked=isDone;
+    cb.addEventListener("change",()=>{state.doneTopics={...state.doneTopics,[t.id]:!isDone};schedSave();render();});
+    row.appendChild(cb);
+    row.appendChild(span({style:{fontSize:"13px",fontWeight:500,textDecoration:isDone?"line-through":"none",flex:1}},t.name));
+    row.appendChild(span({style:{fontSize:"10px",color:"#6b6b68"}},t.subject+" · "+t.paper+" "+t.year));
+    card.appendChild(row);
+    return card;
+  };
+
+  pending.forEach(t=>wrap.appendChild(renderCard(t)));
+
+  if(done.length){
+    wrap.appendChild(div({style:{fontSize:"11px",color:"#9b9b98",marginTop:"12px",marginBottom:"6px",paddingTop:"8px",borderTop:"0.5px solid #e8e8e4"}},"Completed ("+done.length+")"));
+    done.forEach(t=>wrap.appendChild(renderCard(t)));
+  }
+
+  return wrap;
+}
+
+function buildAddModal(){
+  const f=state.addForm;
+  const b25ref=((B25[f.subject]||{})[f.paper])||null;
+  const maxN=parseInt(f.maxMarks)||0;
+
+  const wrap=div({style:{background:"#fff",border:"0.5px solid #85B7EB",borderRadius:"12px",padding:"16px",marginBottom:"12px"}});
+  wrap.appendChild(div({style:{fontSize:"13px",fontWeight:500,marginBottom:"12px"}},"Add a custom paper"));
+
+  const grid=div({style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"}});
+
+  const subjSel=el("select",{class:"is"});
+  ["Maths","Further Maths","Computer Science"].forEach(o=>{const opt=el("option",{value:o},o);if(o===f.subject)opt.selected=true;subjSel.appendChild(opt);});
+  subjSel.addEventListener("change",e=>setState({addForm:{...state.addForm,subject:e.target.value,paper:"",useCustom:false}}));
+  grid.appendChild(div({},[el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Subject"),subjSel]));
+
+  const paperSel=el("select",{class:"is"});
+  [el("option",{value:""},"Select..."),...ALL_PAPER_OPTS.map(o=>{const opt=el("option",{value:o},o);if(o===f.paper)opt.selected=true;return opt;})].forEach(o=>paperSel.appendChild(o));
+  paperSel.addEventListener("change",e=>{
+    const newPaper=e.target.value;
+    const hasBounds=!!((B25[f.subject]||{})[newPaper]);
+    setState({addForm:{...state.addForm,paper:newPaper,customName:"",useCustom:!hasBounds}});
+  });
+  const paperDiv=div({},[el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Paper"),paperSel]);
+  if(f.paper==="Other"){
+    paperDiv.appendChild(liveInp(
+      {type:"text",class:"is",placeholder:"Paper name",value:f.customName,style:{marginTop:"6px"}},
+      val=>{state.addForm.customName=val;}
+    ));
+  }
+  grid.appendChild(paperDiv);
+
+  grid.appendChild(div({},[
+    el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Year"),
+    liveInp({type:"text",class:"is",placeholder:"e.g. 2025",value:f.year},val=>{state.addForm.year=val;}),
+  ]));
+  grid.appendChild(div({},[
+    el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Total marks"),
+    liveInp({type:"number",class:"is",placeholder:"e.g. 100",value:f.maxMarks},val=>{state.addForm.maxMarks=val;}),
+  ]));
+  const ld=div({style:{gridColumn:"1 / -1"}});
+  ld.appendChild(el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Label (optional)"));
+  ld.appendChild(liveInp({type:"text",class:"is",placeholder:"e.g. PMT Set A",value:f.label},val=>{state.addForm.label=val;}));
+  grid.appendChild(ld);
+  wrap.appendChild(grid);
+
+  const bDiv=div({style:{marginBottom:"12px"}});
+  bDiv.appendChild(div({style:{fontSize:"11px",color:"#6b6b68",marginBottom:"6px"}},"Grade boundaries"));
+  const bRow=div({style:{display:"flex",gap:"8px",marginBottom:"8px",flexWrap:"wrap"}});
+
+  if(b25ref){
+    // Show toggle only when 2025 data exists for this paper
+    bRow.appendChild(btn({style:{fontSize:"11px",padding:"4px 12px",borderRadius:"6px",border:"0.5px solid "+(!f.useCustom?"#185FA5":"#e8e8e4"),background:!f.useCustom?"#E6F1FB":"transparent",color:!f.useCustom?"#0C447C":"#6b6b68",cursor:"pointer"},
+      onClick:()=>setState({addForm:{...state.addForm,useCustom:false}})
+    },"Use 2025"));
+    bRow.appendChild(btn({style:{fontSize:"11px",padding:"4px 12px",borderRadius:"6px",border:"0.5px solid "+(f.useCustom?"#185FA5":"#e8e8e4"),background:f.useCustom?"#E6F1FB":"transparent",color:f.useCustom?"#0C447C":"#6b6b68",cursor:"pointer"},
+      onClick:()=>setState({addForm:{...state.addForm,useCustom:true}})
+    },"Enter manually"));
+  }
+  bDiv.appendChild(bRow);
+
+  if(b25ref&&!f.useCustom){
+    // Show 2025 boundaries immediately, scale if total marks entered
+    const scaledAs=maxN>0?Math.round(b25ref.as/b25ref.max*maxN):b25ref.as;
+    const scaledA =maxN>0?Math.round(b25ref.a /b25ref.max*maxN):b25ref.a;
+    const scaledB =maxN>0?Math.round(b25ref.b /b25ref.max*maxN):b25ref.b;
+    const dispMax =maxN>0?maxN:b25ref.max;
+    bDiv.appendChild(div({style:{fontSize:"10px",color:"#0C447C",padding:"6px 10px",background:"#E6F1FB",borderRadius:"6px",border:"0.5px solid #85B7EB"}},
+      "2025 boundaries"+(maxN>0&&maxN!==b25ref.max?" (scaled to /"+dispMax+")":"")+" — A*: "+scaledAs+", A: "+scaledA+", B: "+scaledB+" /"+dispMax));
+  }
+
+  // Show manual fields when useCustom OR no b25ref for this paper
+  if(f.useCustom||!b25ref){
+    const cg=div({style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px"}});
+    [["A*","bAs"],["A","bA"],["B","bB"]].forEach(([l,k])=>{
+      cg.appendChild(div({},[
+        el("label",{style:{fontSize:"10px",color:"#6b6b68",display:"block",marginBottom:"3px"}},l),
+        liveInp({type:"number",class:"is",placeholder:l,value:f[k]},val=>{state.addForm[k]=val;}),
+      ]));
+    });
+    bDiv.appendChild(cg);
+  }
+  wrap.appendChild(bDiv);
+
+  const isIncomplete=!f.paper||!f.year||!f.maxMarks;
+  wrap.appendChild(div({style:{display:"flex",gap:"8px"}},[
+    btn({style:{fontSize:"12px",padding:"6px 16px",borderRadius:"7px",border:"none",background:isIncomplete?"#ccc":"#0F6E56",color:"white",cursor:isIncomplete?"default":"pointer"},
+      onClick:()=>{
+        if(isIncomplete)return;
+        const af=state.addForm;
+        const finalPaper=af.paper==="Other"?(af.customName.trim()||"Other"):af.paper;
+        const displayPaper=af.label.trim()?finalPaper+" ("+af.label.trim()+")":finalPaper;
+        const b25r=((B25[af.subject]||{})[af.paper])||null;
+        const mn=parseInt(af.maxMarks);
+        let cb;
+        if(af.useCustom||!b25r){cb={as:af.bAs?parseInt(af.bAs):null,a:parseInt(af.bA)||0,b:parseInt(af.bB)||0,max:mn};}
+        else if(b25r){cb={as:b25r.as?Math.round(b25r.as/b25r.max*mn):null,a:Math.round(b25r.a/b25r.max*mn),b:Math.round(b25r.b/b25r.max*mn),max:mn};}
+        const np={id:"custom_"+Date.now(),subject:af.subject,paper:finalPaper,displayPaper,year:af.year.trim(),customBoundary:cb,pmtUrl:""};
+        setState({customPapers:[...state.customPapers,np],showAdd:false});
+        schedSave();
+      }
+    },"Add Paper"),
+    btn({style:{fontSize:"12px",padding:"6px 16px",borderRadius:"7px",border:"0.5px solid #e8e8e4",background:"transparent",color:"#6b6b68",cursor:"pointer"},
+      onClick:()=>setState({showAdd:false})
+    },"Cancel"),
+  ]));
+  return wrap;
+}
+
+dbLoad().then(saved=>{
+  if(saved.paperData)state.paperData=saved.paperData;
+  if(saved.doneTopics)state.doneTopics=saved.doneTopics;
+  if(saved.customPapers)state.customPapers=saved.customPapers;
+  render();
+}).catch(e=>{console.error("Load error:",e);render();});
+</script>
+</body>
+</html>
