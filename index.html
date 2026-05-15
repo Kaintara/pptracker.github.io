@@ -138,8 +138,7 @@ const PHYS_PAPERS = [
   ),
 ];
   
-const ALL_PAPER_OPTS=["Paper 1 (Pure)","Paper 2 (Pure)","Paper 3 (Stats & Mech)","Core Pure 1","Core Pure 2","Further Stats 1","Further Mech 1","H446/01 Computer Systems","H446/02 Algorithms & Programming","Other"];
-
+const ALL_PAPER_OPTS=["Paper 1 (Pure)","Paper 2 (Pure)","Paper 3 (Stats & Mech)","Core Pure 1","Core Pure 2","Further Stats 1","Further Mech 1","H446/01 Computer Systems","H446/02 Algorithms & Programming","H556/01 Modelling Physics","H556/02 Exploring Physics","H556/03 Unified Physics","Other"];
 // function getB(subj,paper,year){return((PB[subj]||{})[paper]||{})[parseInt(year)]||null;}
 function getB(subj,paper,year){
   if(subj==="Physics A (OCR)"){
@@ -481,7 +480,7 @@ function buildWeakTopics(papers){
 
 function buildAddModal(){
   const f=state.addForm;
-  const b25ref=((B25[f.subject]||{})[f.paper])||null;
+  const b25ref=f.subject==="Physics A (OCR)"?((B25_PHYS[f.paper])||null):((B25[f.subject]||{})[f.paper])||null;
   const maxN=parseInt(f.maxMarks)||0;
 
   const wrap=div({style:{background:"#fff",border:"0.5px solid #85B7EB",borderRadius:"12px",padding:"16px",marginBottom:"12px"}});
@@ -490,7 +489,7 @@ function buildAddModal(){
   const grid=div({style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"}});
 
   const subjSel=el("select",{class:"is"});
-  ["Maths","Further Maths","Computer Science"].forEach(o=>{const opt=el("option",{value:o},o);if(o===f.subject)opt.selected=true;subjSel.appendChild(opt);});
+ ["Maths","Further Maths","Computer Science","Physics A (OCR)"].forEach(o=>{const opt=el("option",{value:o},o);if(o===f.subject)opt.selected=true;subjSel.appendChild(opt);});
   subjSel.addEventListener("change",e=>setState({addForm:{...state.addForm,subject:e.target.value,paper:"",useCustom:false}}));
   grid.appendChild(div({},[el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Subject"),subjSel]));
 
