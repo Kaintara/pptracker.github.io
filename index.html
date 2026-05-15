@@ -497,7 +497,7 @@ function buildAddModal(){
   [el("option",{value:""},"Select..."),...ALL_PAPER_OPTS.map(o=>{const opt=el("option",{value:o},o);if(o===f.paper)opt.selected=true;return opt;})].forEach(o=>paperSel.appendChild(o));
   paperSel.addEventListener("change",e=>{
     const newPaper=e.target.value;
-    const hasBounds=!!((B25[f.subject]||{})[newPaper]);
+    const hasBounds=f.subject==="Physics A (OCR)"?!!(B25_PHYS[newPaper]):!!((B25[f.subject]||{})[newPaper]);
     setState({addForm:{...state.addForm,paper:newPaper,customName:"",useCustom:!hasBounds}});
   });
   const paperDiv=div({},[el("label",{style:{fontSize:"11px",color:"#6b6b68",display:"block",marginBottom:"4px"}},"Paper"),paperSel]);
@@ -569,7 +569,7 @@ function buildAddModal(){
         const af=state.addForm;
         const finalPaper=af.paper==="Other"?(af.customName.trim()||"Other"):af.paper;
         const displayPaper=af.label.trim()?finalPaper+" ("+af.label.trim()+")":finalPaper;
-        const b25r=((B25[af.subject]||{})[af.paper])||null;
+        const b25r=af.subject==="Physics A (OCR)"?((B25_PHYS[af.paper])||null):((B25[af.subject]||{})[af.paper])||null;
         const mn=parseInt(af.maxMarks);
         let cb;
         if(af.useCustom||!b25r){cb={as:af.bAs?parseInt(af.bAs):null,a:parseInt(af.bA)||0,b:parseInt(af.bB)||0,max:mn};}
